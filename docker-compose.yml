@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: royaltyflux
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/royaltyflux
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      AVALANCHE_RPC: ${AVALANCHE_RPC:-https://api.avax-test.network/ext/bc/C/rpc}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      PINATA_JWT: ${PINATA_JWT}
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET}
+      MPESA_PASSKEY: ${MPESA_PASSKEY}
+      MPESA_SHORTCODE: ${MPESA_SHORTCODE:-174379}
+      MPESA_CALLBACK_URL: ${MPESA_CALLBACK_URL}
+      MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      NODE_ENV: production
+    ports:
+      - '3001:3001'
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '5173:80'
+
+volumes:
+  pgdata:

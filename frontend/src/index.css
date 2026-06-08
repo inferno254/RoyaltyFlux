@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: 10 10 10;
+    --color-fg: 255 255 255;
+  }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: rgb(var(--color-bg));
+    color: rgb(var(--color-fg));
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50;
+  }
+  .input {
+    @apply block w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+  }
+  .card {
+    @apply rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full bg-brand-900/40 px-2 py-0.5 text-xs font-medium text-brand-300;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgb(15, 15, 15); }
+::-webkit-scrollbar-thumb { background: rgb(60, 60, 60); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(80, 80, 80); }

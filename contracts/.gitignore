@@ -1,0 +1,11 @@
+cache/
+out/
+broadcast/
+.env
+.env.*
+!.env.example
+lib/
+coverage/
+coverage.json
+gas-report.txt
+deployments/

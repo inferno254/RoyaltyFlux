@@ -1,0 +1,229 @@
+// RoyaltyFlux Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ARTIST
+  COLLABORATOR
+  LISTENER
+  ADMIN
+}
+
+enum SongStatus {
+  DRAFT
+  PROCESSING
+  MINTED
+  FAILED
+}
+
+enum MpesaTxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  TIMEOUT
+}
+
+enum RoyaltyStatus {
+  PENDING
+  DISTRIBUTED
+  FAILED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  walletAddress String?   @unique
+  phone         String?   @unique
+  role          UserRole  @default(LISTENER)
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  artistProfile   ArtistProfile?
+  songs           Song[]            @relation("SongArtist")
+  collaborations  SongCollaborator[]
+  streams         Stream[]
+  mpesaPayouts    MpesaPayout[]
+  refreshTokens   RefreshToken[]
+  passwordResets  PasswordReset[]
+
+  @@index([email])
+  @@index([walletAddress])
+  @@index([phone])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model ArtistProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  displayName   String
+  bio           String?  @db.Text
+  avatarUrl     String?
+  coverUrl      String?
+  verified      Boolean  @default(false)
+  totalEarnings Decimal  @default(0) @db.Decimal(18, 8)
+  totalStreams  BigInt   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([displayName])
+}
+
+model Song {
+  id              String     @id @default(uuid())
+  title           String
+  description     String?    @db.Text
+  genre           String?
+  durationSec     Int?
+  artistId        String
+  ipfsAudioHash   String?
+  ipfsCoverHash   String?
+  ipfsMetadataUri String?
+  tokenId         BigInt?    @unique
+  contractAddress String?
+  splitterAddress String?
+  status          SongStatus @default(DRAFT)
+  releaseDate     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  artist        User               @relation("SongArtist", fields: [artistId], references: [id])
+  collaborators SongCollaborator[]
+  streams       Stream[]
+  royalties     RoyaltyDistribution[]
+
+  @@index([artistId])
+  @@index([status])
+  @@index([tokenId])
+}
+
+model SongCollaborator {
+  id        String   @id @default(uuid())
+  songId    String
+  userId    String
+  shareBps  Int
+  createdAt DateTime @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([songId, userId])
+  @@index([songId])
+  @@index([userId])
+}
+
+model Stream {
+  id         String   @id @default(uuid())
+  songId     String
+  userId     String?
+  listenerIp String?
+  streamAt   DateTime @default(now())
+  reportedOnChain Boolean @default(false)
+  txHash     String?
+
+  song Song  @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([songId])
+  @@index([userId])
+  @@index([streamAt])
+  @@index([reportedOnChain])
+}
+
+model RoyaltyDistribution {
+  id          String        @id @default(uuid())
+  songId      String
+  totalKes    Decimal       @db.Decimal(18, 2)
+  totalStreams BigInt
+  txHash      String?
+  status      RoyaltyStatus @default(PENDING)
+  errorMsg    String?
+  distributedAt DateTime?
+  createdAt   DateTime      @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  mpesaPayouts MpesaPayout[]
+
+  @@index([songId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MpesaPayout {
+  id                String        @id @default(uuid())
+  userId            String
+  distributionId    String?
+  phone             String
+  amountKes         Decimal       @db.Decimal(18, 2)
+  merchantRequestId String?       @unique
+  checkoutRequestId String?       @unique
+  mpesaReceipt      String?
+  status            MpesaTxStatus @default(PENDING)
+  resultCode        Int?
+  resultDesc        String?
+  rawCallback       Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  distribution RoyaltyDistribution? @relation(fields: [distributionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([distributionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  resource  String
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
